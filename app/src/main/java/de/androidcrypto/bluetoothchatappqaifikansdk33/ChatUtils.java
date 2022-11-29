@@ -6,10 +6,13 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.Context;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
+
+import androidx.annotation.RequiresApi;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,7 +31,9 @@ public class ChatUtils {
     private AcceptThread acceptThread;
     private ConnectedThread connectedThread;
 
-    private final UUID APP_UUID = UUID.fromString("fa87c0d0-afac-11de-8a39-0800200c9a66");
+    //private final UUID APP_UUID = UUID.fromString("fa87c0d0-afac-11de-8a39-0800200c9a66");
+    private final UUID APP_UUID_SECURE = UUID.fromString("00001101-0000-1000-8000-00805f9b34fb");
+    //private final UUID APP_UUID_INSECURE = UUID.fromString("8ce255c0-200a-11e0-ac64-0800200c9a66");
     private final String APP_NAME = "BluetoothChatApp";
 
     public static final int STATE_NONE = 0;
@@ -102,17 +107,20 @@ public class ChatUtils {
         Log.d(TAG, "connect to: " + device);
 
         if (state == STATE_CONNECTING) {
-            connectThread.cancel();
-            connectThread = null;
+            if (connectThread != null) { // new
+                connectThread.cancel();
+                connectThread = null;
+            }
         }
 
-        connectThread = new ConnectThread(device);
-        connectThread.start();
-
+        // Cancel any thread currently running a connection
         if (connectedThread != null) {
             connectedThread.cancel();
             connectedThread = null;
         }
+
+        connectThread = new ConnectThread(device);
+        connectThread.start();
 
         setState(STATE_CONNECTING);
     }
@@ -138,10 +146,11 @@ public class ChatUtils {
             BluetoothServerSocket tmp = null;
             try {
                 //tmp = bluetoothAdapter.listenUsingRfcommWithServiceRecord(APP_NAME, APP_UUID);
+                tmp = bluetoothAdapter.listenUsingRfcommWithServiceRecord(APP_NAME, APP_UUID_SECURE);
                 // changed due to problems with paired/bonded devices
-                tmp = bluetoothAdapter.listenUsingInsecureRfcommWithServiceRecord(APP_NAME, APP_UUID);
+                //tmp = bluetoothAdapter.listenUsingInsecureRfcommWithServiceRecord(APP_NAME, APP_UUID_INSECURE);
             } catch (IOException e) {
-                Log.e("Accept->Constructor", e.toString());
+                Log.e(TAG, "Accept->Constructor" + e.toString());
             }
 
             serverSocket = tmp;
@@ -152,11 +161,11 @@ public class ChatUtils {
             try {
                 socket = serverSocket.accept();
             } catch (IOException e) {
-                Log.e("Accept->Run", e.toString());
+                Log.e(TAG,"Accept->Run" + e.toString());
                 try {
                     serverSocket.close();
                 } catch (IOException e1) {
-                    Log.e("Accept->Close", e.toString());
+                    Log.e(TAG,"Accept->Close" + e.toString());
                 }
             }
 
@@ -171,7 +180,7 @@ public class ChatUtils {
                         try {
                             socket.close();
                         } catch (IOException e) {
-                            Log.e("Accept->CloseSocket", e.toString());
+                            Log.e(TAG, "Accept->CloseSocket" + e.toString());
                         }
                         break;
                 }
@@ -182,7 +191,7 @@ public class ChatUtils {
             try {
                 serverSocket.close();
             } catch (IOException e) {
-                Log.e("Accept->CloseServer", e.toString());
+                Log.e(TAG, "Accept->CloseServer" + e.toString());
             }
         }
     }
@@ -192,39 +201,46 @@ public class ChatUtils {
         private final BluetoothSocket socket;
         private final BluetoothDevice device;
 
+        @RequiresApi(api = Build.VERSION_CODES.M) // todo delete this is for debug only
         public ConnectThread(BluetoothDevice device) {
             this.device = device;
-
+            Log.d(TAG, "ConnectThread device: " + device);
             BluetoothSocket tmp = null;
             try {
                 // changed due to problems with paired/bonded devices
                 // tmp = device.createRfcommSocketToServiceRecord(APP_UUID);
-                tmp = device.createInsecureRfcommSocketToServiceRecord(APP_UUID);
+                tmp = device.createRfcommSocketToServiceRecord(APP_UUID_SECURE);
+                //tmp = device.createInsecureRfcommSocketToServiceRecord(APP_UUID_INSECURE);
             } catch (IOException e) {
-                Log.e("Connect->Constructor", e.toString());
+                Log.e(TAG, "Connect->Constructor " + e.toString());
             }
-
+            Log.d(TAG, "ConnectThread socket: " + tmp.getConnectionType() + " " + tmp.toString());
             socket = tmp;
         }
 
         public void run() {
+            // Always cancel discovery because it will slow down a connection
+            // new
+            bluetoothAdapter.cancelDiscovery();
+
             try {
                 socket.connect();
             } catch (IOException e) {
-                Log.e("Connect->Run", e.toString());
+                Log.e(TAG, "ConnectThread Connect->Run " + e.toString());
                 try {
                     socket.close();
                 } catch (IOException e1) {
-                    Log.e("Connect->CloseSocket", e.toString());
+                    Log.e(TAG, "Connect->CloseSocket " + e.toString());
                 }
                 connectionFailed();
                 return;
             }
 
+            // Reset the ConnectThread because we're done
             synchronized (ChatUtils.this) {
                 connectThread = null;
             }
-
+            // Start the connected thread
             connected(socket, device);
         }
 
@@ -232,7 +248,7 @@ public class ChatUtils {
             try {
                 socket.close();
             } catch (IOException e) {
-                Log.e("Connect->Cancel", e.toString());
+                Log.e(TAG,"Connect->Cancel " + e.toString());
             }
         }
     }

@@ -57,7 +57,6 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * This block is for requesting permissions on Android 12+
-     * @param savedInstanceState
      */
 
     private static final int PERMISSIONS_REQUEST_CODE = 191;
