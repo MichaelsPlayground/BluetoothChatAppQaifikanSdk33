@@ -19,6 +19,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -28,7 +29,6 @@ import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.Toast;
 
-@RequiresApi(api = Build.VERSION_CODES.S)
 public class MainActivity extends AppCompatActivity {
 
     private Context context;
@@ -52,6 +52,8 @@ public class MainActivity extends AppCompatActivity {
     public static final String DEVICE_NAME = "deviceName";
     public static final String TOAST = "toast";
     private String connectedDevice;
+
+    private static String TAG = "MainActivity";
 
     /**
      * This block is for requesting permissions on Android 12+
@@ -134,7 +136,7 @@ public class MainActivity extends AppCompatActivity {
                     break;
                 case MESSAGE_DEVICE_NAME:
                     connectedDevice = message.getData().getString(DEVICE_NAME);
-                    Toast.makeText(context, connectedDevice, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(context, "Message device name: " + connectedDevice, Toast.LENGTH_SHORT).show();
                     break;
                 case MESSAGE_TOAST:
                     Toast.makeText(context, message.getData().getString(TOAST), Toast.LENGTH_SHORT).show();
@@ -248,14 +250,18 @@ public class MainActivity extends AppCompatActivity {
 
     @SuppressLint("MissingPermission")
     private void enableBluetooth() {
+        Log.i(TAG, "enableBluetooth");
         if (!bluetoothAdapter.isEnabled()) {
             bluetoothAdapter.enable();
         }
 
         if (bluetoothAdapter.getScanMode() != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
+            Log.i(TAG, "enableBluetooth request discoverable");
             Intent discoveryIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
             discoveryIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
             startActivity(discoveryIntent);
+        } else {
+            Log.i(TAG, "enableBluetooth device is already discoverable");
         }
     }
 

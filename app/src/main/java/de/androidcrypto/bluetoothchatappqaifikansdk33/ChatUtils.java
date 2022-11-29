@@ -38,6 +38,9 @@ public class ChatUtils {
 
     private int state;
 
+    // Debugging
+    private static final String TAG = "ChatUtils";
+
     public ChatUtils(Context context, Handler handler) {
         this.context = context;
         this.handler = handler;
@@ -56,6 +59,8 @@ public class ChatUtils {
     }
 
     private synchronized void start() {
+        Log.d(TAG, "start");
+
         if (connectThread != null) {
             connectThread.cancel();
             connectThread = null;
@@ -75,6 +80,7 @@ public class ChatUtils {
     }
 
     public synchronized void stop() {
+        Log.d(TAG, "stop");
         if (connectThread != null) {
             connectThread.cancel();
             connectThread = null;
@@ -93,6 +99,8 @@ public class ChatUtils {
     }
 
     public void connect(BluetoothDevice device) {
+        Log.d(TAG, "connect to: " + device);
+
         if (state == STATE_CONNECTING) {
             connectThread.cancel();
             connectThread = null;
@@ -129,7 +137,9 @@ public class ChatUtils {
         public AcceptThread() {
             BluetoothServerSocket tmp = null;
             try {
-                tmp = bluetoothAdapter.listenUsingRfcommWithServiceRecord(APP_NAME, APP_UUID);
+                //tmp = bluetoothAdapter.listenUsingRfcommWithServiceRecord(APP_NAME, APP_UUID);
+                // changed due to problems with paired/bonded devices
+                tmp = bluetoothAdapter.listenUsingInsecureRfcommWithServiceRecord(APP_NAME, APP_UUID);
             } catch (IOException e) {
                 Log.e("Accept->Constructor", e.toString());
             }
@@ -187,7 +197,9 @@ public class ChatUtils {
 
             BluetoothSocket tmp = null;
             try {
-                tmp = device.createRfcommSocketToServiceRecord(APP_UUID);
+                // changed due to problems with paired/bonded devices
+                // tmp = device.createRfcommSocketToServiceRecord(APP_UUID);
+                tmp = device.createInsecureRfcommSocketToServiceRecord(APP_UUID);
             } catch (IOException e) {
                 Log.e("Connect->Constructor", e.toString());
             }
@@ -240,6 +252,7 @@ public class ChatUtils {
                 tmpIn = socket.getInputStream();
                 tmpOut = socket.getOutputStream();
             } catch (IOException e) {
+                Log.e(TAG, "ConnectedThread failed: ", e);
             }
 
             inputStream = tmpIn;
@@ -264,7 +277,7 @@ public class ChatUtils {
                 outputStream.write(buffer);
                 handler.obtainMessage(MainActivity.MESSAGE_WRITE, -1, -1, buffer).sendToTarget();
             } catch (IOException e) {
-
+                Log.e(TAG, "write failed: ", e);
             }
         }
 
@@ -272,7 +285,7 @@ public class ChatUtils {
             try {
                 socket.close();
             } catch (IOException e) {
-
+                Log.e(TAG, "cancel failed: ", e);
             }
         }
     }
@@ -283,7 +296,6 @@ public class ChatUtils {
         bundle.putString(MainActivity.TOAST, "Connection Lost");
         message.setData(bundle);
         handler.sendMessage(message);
-
         ChatUtils.this.start();
     }
 
@@ -293,12 +305,14 @@ public class ChatUtils {
         bundle.putString(MainActivity.TOAST, "Cant connect to the device");
         message.setData(bundle);
         handler.sendMessage(message);
-
         ChatUtils.this.start();
     }
 
     @SuppressLint("MissingPermission")
     private synchronized void connected(BluetoothSocket socket, BluetoothDevice device) {
+        //Log.d(TAG, "connected, Socket Type:" + socketType);
+        Log.d(TAG, "connected");
+
         if (connectThread != null) {
             connectThread.cancel();
             connectThread = null;
